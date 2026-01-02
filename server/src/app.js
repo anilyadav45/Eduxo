@@ -36,6 +36,14 @@ app.use(
 
 
 app.use(express.json());
+
+// health check
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    env: process.env.NODE_ENV
+  });
+});
 app.get("/ping", (req, res) => {
   res.send("pong");
 });
@@ -63,6 +71,12 @@ app.use("/api", apiLimiter);
 
 
 app.use("/api", healthRoutes);
+
+
+app.get("/", (req, res) => {
+  res.send("EduXo Backend is running 🚀");
+});
+
 
 
 
