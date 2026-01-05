@@ -1,48 +1,40 @@
 import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
 import User from "../src/models/User.js";
-
-console.log("🚀 Bootstrap script started");
 
 dotenv.config({ path: "../.env" });
 
-console.log("ENV MONGO_URI:", process.env.MONGO_URI ? "FOUND" : "MISSING");
-
-async function bootstrap() {
+const bootstrap = async () => {
   try {
-    console.log("🔌 Connecting to MongoDB...");
     await mongoose.connect(process.env.MONGO_URI);
-    console.log("✅ MongoDB connected");
+    console.log("MongoDB connected");
 
-    const email = "admin@eduxo.com";
-
-    console.log("🔍 Checking existing admin...");
-    const exists = await User.findOne({ email });
-
-    if (exists) {
-      console.log("ℹ️ Admin already exists:", exists.email);
+    const existing = await User.findOne({ role: "SUPER_ADMIN" });
+    if (existing) {
+      console.log("SUPER_ADMIN already exists");
       process.exit(0);
     }
 
-    console.log("🔐 Hashing password...");
-    const hashedPassword = await bcrypt.hash("admin123", 10);
+    const hashed = await bcrypt.hash("superadmin123", 10);
 
-    console.log("👤 Creating admin user...");
     const admin = await User.create({
-      name: "EduXo System Admin",
-      email,
-      password: hashedPassword,
-      role: "COLLEGE_ADMIN",
+      name: "EduXo Super Admin",
+      email: "superadmin@eduxo.com",
+      password: hashed,
+      role: "SUPER_ADMIN",
       isActive: true,
     });
 
-    console.log("🎉 Admin created successfully:", admin.email);
+    console.log("✅ SUPER_ADMIN created:");
+    console.log("Email: superadmin@eduxo.com");
+    console.log("Password: superadmin123");
+
     process.exit(0);
   } catch (err) {
-    console.error("❌ Bootstrap failed:", err);
+    console.error(err);
     process.exit(1);
   }
-}
+};
 
 bootstrap();

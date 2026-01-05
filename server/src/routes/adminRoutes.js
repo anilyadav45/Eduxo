@@ -1,6 +1,8 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
 import { allowRoles } from "../middleware/role.js";
+import { assignStudentSemester } from "../controllers/adminController.js";
+import { getAdminDashboardStats } from "../controllers/adminAnalyticsController.js";
 import {
   createCollege,
   createDepartment,
@@ -18,7 +20,6 @@ router.post("/semester", protect, allowRoles("COLLEGE_ADMIN"), createSemester);
 
 router.post("/subject", protect, allowRoles("COLLEGE_ADMIN"), createSubject);
 
-import { assignStudentSemester } from "../controllers/adminController.js";
 
 router.post(
   "/assign-student-semester",
@@ -28,7 +29,6 @@ router.post(
 );
 
 
-import { getAdminDashboardStats } from "../controllers/adminAnalyticsController.js";
 
 router.get(
   "/dashboard-stats",
