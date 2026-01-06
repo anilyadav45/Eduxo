@@ -2,6 +2,8 @@ import College from "../models/College.js";
 import Department from "../models/Department.js";
 import Semester from "../models/Semester.js";
 import Subject from "../models/Subject.js";
+import { logAudit } from "../utils/AuditLogger.js";
+
 const generateCollegeCode = (name) => {
   return name
     .toUpperCase()
@@ -32,6 +34,15 @@ export const createCollege = async (req, res) => {
       createdBy: req.user.id
     });
 
+
+    await logAudit({
+      req,
+      action: "CREATE_COLLEGE",
+      entity: "College",
+      entityId: college._id,
+      metadata: { name: college.name },
+    });
+
     res.status(201).json(college);
   } catch (err) {
     console.error("Create college error:", err.message);
@@ -46,8 +57,6 @@ export const createDepartment = async (req, res) => {
   res.status(201).json(department);
 };
 
-// import Department from "../models/Department.js";
-// import Semester from "../models/Semester.js";
 
 export const createSemester = async (req, res) => {
   try {

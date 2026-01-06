@@ -17,6 +17,7 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import helmet from "helmet";
 import { apiLimiter } from "./middleware/rateLimit.js";
 import healthRoutes from "./routes/healthRoutes.js";
+import auditRoutes from "./routes/auditRoutes.js";
 
 
 
@@ -71,6 +72,8 @@ app.use("/api", apiLimiter);
 
 
 app.use("/api", healthRoutes);
+app.use("/api/audit", auditRoutes);
+
 
 
 app.get("/", (req, res) => {
