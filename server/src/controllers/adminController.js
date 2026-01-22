@@ -111,6 +111,7 @@ export const createSemester = async (req, res) => {
     const semester = await Semester.create({
       name,
       department,
+      college: dept.college   // 🔥 VERY IMPORTANT
     });
 
     res.status(201).json(semester);
