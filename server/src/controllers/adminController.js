@@ -51,10 +51,42 @@ export const createCollege = async (req, res) => {
 };
 
 
-
 export const createDepartment = async (req, res) => {
-  const department = await Department.create(req.body);
-  res.status(201).json(department);
+  try {
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: "Department name is required" });
+    }
+
+    let collegeId;
+
+    // ✅ SUPER ADMIN can choose college
+    if (req.user.role === "SUPER_ADMIN") {
+      if (!req.body.college) {
+        return res.status(400).json({ message: "College is required" });
+      }
+      collegeId = req.body.college;
+    }
+
+    // ✅ COLLEGE ADMIN always uses own college
+    if (req.user.role === "COLLEGE_ADMIN") {
+      if (!req.user.college) {
+        return res.status(400).json({ message: "Admin has no college assigned" });
+      }
+      collegeId = req.user.college;
+    }
+
+    const department = await Department.create({
+      name,
+      college: collegeId,
+    });
+
+    res.status(201).json(department);
+  } catch (err) {
+    console.error("Create department error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
 
@@ -62,13 +94,18 @@ export const createSemester = async (req, res) => {
   try {
     const { name, department } = req.body;
 
-    if (!name || !department) {
-      return res.status(400).json({ message: "Name and department required" });
+    const dept = await Department.findById(department);
+    if (!dept) {
+      return res.status(400).json({ message: "Invalid department ID" });
     }
 
-    const deptExists = await Department.findById(department);
-    if (!deptExists) {
-      return res.status(400).json({ message: "Invalid department ID" });
+    // ✅ College isolation
+    if (req.user.role === "COLLEGE_ADMIN") {
+      if (String(req.user.college) !== String(dept.college)) {
+        return res.status(403).json({
+          message: "You cannot create semester for another college",
+        });
+      }
     }
 
     const semester = await Semester.create({
@@ -78,30 +115,95 @@ export const createSemester = async (req, res) => {
 
     res.status(201).json(semester);
   } catch (err) {
-    console.error("Create semester error:", err.message);
+    console.error("Create semester error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
 
+
 export const createSubject = async (req, res) => {
-  const subject = await Subject.create(req.body);
-  res.status(201).json(subject);
+  try {
+    const { name, semester } = req.body;
+
+    const sem = await Semester.findById(semester).populate("department");
+    if (!sem) {
+      return res.status(400).json({ message: "Invalid semester ID" });
+    }
+
+    // ✅ College isolation
+    if (req.user.role === "COLLEGE_ADMIN") {
+      if (String(req.user.college) !== String(sem.department.college)) {
+        return res.status(403).json({
+          message: "You cannot create subject for another college",
+        });
+      }
+    }
+
+    const subject = await Subject.create({
+      name,
+      semester,
+    });
+
+    res.status(201).json(subject);
+  } catch (err) {
+    console.error("Create subject error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
+
 
 
 import User from "../models/User.js";
 
 export const assignStudentSemester = async (req, res) => {
-  const { studentId, semesterId } = req.body;
+  try {
+    const { studentId, semesterId } = req.body;
 
-  const student = await User.findById(studentId);
-  if (!student || student.role !== "STUDENT") {
-    return res.status(400).json({ message: "Invalid student" });
+    if (!studentId || !semesterId) {
+      return res.status(400).json({ message: "studentId and semesterId required" });
+    }
+
+    // logged in admin
+    const admin = req.user;
+
+    // student
+    const student = await User.findById(studentId);
+    if (!student || student.role !== "STUDENT") {
+      return res.status(400).json({ message: "Invalid student" });
+    }
+
+    // semester
+    const semester = await Semester.findById(semesterId).populate({
+      path: "department",
+      populate: { path: "college" }
+    });
+
+    if (!semester) {
+      return res.status(400).json({ message: "Invalid semester" });
+    }
+
+    // 🔐 College isolation checks
+    if (!student.college || student.college.toString() !== admin.college.toString()) {
+      return res.status(403).json({ message: "Student not from your college" });
+    }
+
+    if (
+      !semester.department ||
+      !semester.department.college ||
+      semester.department.college._id.toString() !== admin.college.toString()
+    ) {
+      return res.status(403).json({ message: "Semester not from your college" });
+    }
+
+    student.semester = semesterId;
+    await student.save();
+
+    res.json({ message: "Student assigned to semester successfully" });
+
+  } catch (err) {
+    console.error("Assign student semester error:", err);
+    res.status(500).json({ message: "Server error" });
   }
-
-  student.semester = semesterId;
-  await student.save();
-
-  res.json({ message: "Student assigned to semester" });
 };
+

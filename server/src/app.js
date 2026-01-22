@@ -59,23 +59,13 @@ app.use("/api/timetable", timetableRoutes);
 app.use("/api/notes", noteRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/api/users", userRoutes);
-
 app.use("/api/exams", examRoutes);
-
 app.use("/api/notifications", notificationRoutes);
-
-
 app.use(errorHandler);
 app.use(helmet());
-
 app.use("/api", apiLimiter);
-
-
 app.use("/api", healthRoutes);
 app.use("/api/audit", auditRoutes);
-
-
-
 app.get("/", (req, res) => {
   res.send("EduXo Backend is running 🚀");
 });

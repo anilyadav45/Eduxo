@@ -8,7 +8,7 @@ const router = express.Router();
 router.post(
   "/create",
   protect,
-  allowRoles("COLLEGE_ADMIN"),
+  allowRoles("SUPER_ADMIN", "COLLEGE_ADMIN"),
   createUserByAdmin
 );
 
