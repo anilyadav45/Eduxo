@@ -20,7 +20,6 @@ import healthRoutes from "./routes/healthRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
 
 
-
 const app = express();
 
 // app.use(cors()); //for dev level
@@ -28,9 +27,9 @@ const app = express();
 app.use(
   cors({
     origin:
-      process.env.NODE_ENV === "production"
-        ? ["https://yourdomain.com"]
-        : ["http://localhost:5173"],
+    process.env.NODE_ENV === "production"
+    ? ["https://yourdomain.com"]
+    : ["http://localhost:5173"],
     credentials: true,
   })
 );
@@ -52,6 +51,7 @@ app.get("/ping", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/test", testRoutes);
+app.use("/api/student", studentRoutes);
 app.use("/api/teacher", teacherRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/student", studentRoutes);

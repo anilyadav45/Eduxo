@@ -1,9 +1,20 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
 import { allowRoles } from "../middleware/role.js";
-import { getAttendance, getNotes } from "../controllers/studentController.js";
+import { getAttendance, getNotes,getStudentDashboard } from "../controllers/studentController.js";
+import { getTodayRoutine } from "../controllers/studentController.js";
 
 const router = express.Router();
+
+//get dashboard
+
+router.get(
+  "/dashboard",
+  protect,
+  allowRoles("STUDENT"),
+  getStudentDashboard
+);
+
 //get attendence
 router.get(
   "/attendance",
@@ -21,7 +32,6 @@ router.get(
 
 //get attendence
 
-import { getTodayRoutine } from "../controllers/studentController.js";
 
 router.get(
   "/today",
