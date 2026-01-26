@@ -41,6 +41,23 @@ export const createTimetable = async (req, res) => {
       return res.status(400).json({ message: "Teacher not assigned to subject" });
     }
 
+
+
+    const clash = await Timetable.findOne({
+      semester,
+      day,
+      $or: [
+        { startTime: { $lt: endTime }, endTime: { $gt: startTime } }
+      ]
+    });
+
+    if (clash) {
+      return res.status(409).json({
+        message: "Timetable clash: another class exists at this time"
+      });
+    }
+
+
     const timetable = await Timetable.create({
       subject,
       semester,

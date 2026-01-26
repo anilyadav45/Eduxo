@@ -1,14 +1,20 @@
 import Subject from "../models/Subject.js";
 import Timetable from "../models/Timetable.js";
-
 // Assign teacher to subject (Admin action)
 import User from "../models/User.js";
+import Attendance from "../models/Attendance.js";
+
 
 export const assignTeacher = async (req, res) => {
   try {
     const { subjectId, teacherId } = req.body;
 
-    const subject = await Subject.findById(subjectId).populate("semester");
+    const subject = await Subject.findById(subjectId)
+      .populate({
+        path: "semester",
+        populate: { path: "department", populate: { path: "college" } }
+      });
+
     if (!subject) {
       return res.status(404).json({ message: "Subject not found" });
     }
@@ -18,15 +24,14 @@ export const assignTeacher = async (req, res) => {
       return res.status(400).json({ message: "Invalid teacher" });
     }
 
-    // 🔒 COLLEGE ISOLATION CHECK
+    // 🔒 College isolation
     if (
-      String(subject.semester.college) !== String(req.user.college) ||
-      String(teacher.college) !== String(req.user.college)
+      teacher.college.toString() !== subject.semester.department.college._id.toString()
     ) {
       return res.status(403).json({ message: "Cross-college assignment blocked" });
     }
 
-    subject.teacher = teacherId;
+    subject.teacher = teacherId;   // ✅ MUST EXIST
     await subject.save();
 
     res.json({ message: "Teacher assigned successfully" });
@@ -35,7 +40,6 @@ export const assignTeacher = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 // Get today's timetable for logged-in teacher
 export const getTodayClasses = async (req, res) => {
@@ -76,4 +80,62 @@ export const getTeacherDashboard = async (req, res) => {
     todayClasses,
   });
 };
+
+//reports 
+
+
+export const getSubjectReport = async (req, res) => {
+  try {
+    const teacherId = req.user.id;
+    const { subjectId } = req.params;
+
+    // 1. Check subject belongs to teacher
+    const subject = await Subject.findById(subjectId);
+    if (!subject || String(subject.teacher) !== String(teacherId)) {
+      return res.status(403).json({ message: "Not your subject" });
+    }
+
+    // 2. Attendance records
+    const records = await Attendance.find({ subject: subjectId })
+      .populate("records.student", "name email")
+      .sort({ date: 1 });
+
+    const studentStats = {};
+
+    records.forEach((att) => {
+      att.records.forEach((r) => {
+        const id = r.student._id.toString();
+
+        if (!studentStats[id]) {
+          studentStats[id] = {
+            student: r.student,
+            total: 0,
+            present: 0,
+          };
+        }
+
+        studentStats[id].total++;
+        if (r.status === "PRESENT") studentStats[id].present++;
+      });
+    });
+
+    const report = Object.values(studentStats).map((s) => ({
+      student: s.student,
+      totalClasses: s.total,
+      present: s.present,
+      percentage:
+        s.total === 0 ? 0 : Math.round((s.present / s.total) * 100),
+    }));
+
+    res.json({
+      subject: subject.name,
+      report,
+    });
+
+  } catch (err) {
+    console.error("Subject report error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 

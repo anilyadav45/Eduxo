@@ -20,6 +20,7 @@ const timetableSchema = new mongoose.Schema(
     day: {
       type: String,
       enum: [
+        "SUNDAY",
         "MONDAY",
         "TUESDAY",
         "WEDNESDAY",

@@ -1,7 +1,7 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
 import { allowRoles } from "../middleware/role.js";
-import { assignStudentSemester } from "../controllers/adminController.js";
+import { assignStudentSemester,getSemesterReport } from "../controllers/adminController.js";
 import { getAdminDashboardStats } from "../controllers/adminAnalyticsController.js";
 import { requireSameCollege } from "../middleware/tenant.js";
 import {
@@ -45,5 +45,13 @@ router.post(
   requireSameCollege,
   createDepartment
 );
+
+router.get(
+  "/semester-report/:semesterId",
+  protect,
+  allowRoles("COLLEGE_ADMIN"),
+  getSemesterReport
+);
+
 
 export default router;

@@ -3,6 +3,9 @@ import Department from "../models/Department.js";
 import Semester from "../models/Semester.js";
 import Subject from "../models/Subject.js";
 import { logAudit } from "../utils/AuditLogger.js";
+import Attendance from "../models/Attendance.js";
+import User from "../models/User.js";
+
 
 const generateCollegeCode = (name) => {
   return name
@@ -155,7 +158,6 @@ export const createSubject = async (req, res) => {
 
 
 
-import User from "../models/User.js";
 
 export const assignStudentSemester = async (req, res) => {
   try {
@@ -208,3 +210,61 @@ export const assignStudentSemester = async (req, res) => {
   }
 };
 
+//reports
+
+
+export const getSemesterReport = async (req, res) => {
+  try {
+    const { semesterId } = req.params;
+
+    const semester = await Semester.findById(semesterId).populate("department");
+    if (!semester) {
+      return res.status(400).json({ message: "Invalid semester" });
+    }
+
+    // College isolation
+    if (String(semester.college) !== String(req.user.college)) {
+      return res.status(403).json({ message: "Cross-college blocked" });
+    }
+
+    const attendance = await Attendance.find({ semester: semesterId })
+      .populate("subject", "name")
+      .populate("records.student", "name email");
+
+    const stats = {};
+
+    attendance.forEach((a) => {
+      a.records.forEach((r) => {
+        const id = r.student._id.toString();
+
+        if (!stats[id]) {
+          stats[id] = {
+            student: r.student,
+            total: 0,
+            present: 0,
+          };
+        }
+
+        stats[id].total++;
+        if (r.status === "PRESENT") stats[id].present++;
+      });
+    });
+
+    const report = Object.values(stats).map((s) => ({
+      student: s.student,
+      totalClasses: s.total,
+      present: s.present,
+      percentage:
+        s.total === 0 ? 0 : Math.round((s.present / s.total) * 100),
+    }));
+
+    res.json({
+      semester: semester.name,
+      report,
+    });
+
+  } catch (err) {
+    console.error("Semester report error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

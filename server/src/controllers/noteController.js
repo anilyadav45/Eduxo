@@ -3,40 +3,42 @@ import Note from "../models/Note.js";
 // 👨‍🏫 Upload notes (Teacher)
 import Subject from "../models/Subject.js";
 import Semester from "../models/Semester.js";
-
 export const uploadNote = async (req, res) => {
   try {
     const { title, subjectId, semesterId } = req.body;
 
-    if (!req.file || !title || !subjectId || !semesterId) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!req.file) {
+      return res.status(400).json({ message: "File required" });
     }
 
-    const subject = await Subject.findById(subjectId).populate({
-      path: "semester",
-      populate: { path: "department", populate: { path: "college" } }
-    });
+    const teacherId = req.user.id;
+
+    const subject = await Subject.findById(subjectId)
+      .populate({
+        path: "semester",
+        populate: { path: "department", populate: { path: "college" } }
+      });
 
     if (!subject) {
-      return res.status(404).json({ message: "Subject not found" });
+      return res.status(400).json({ message: "Invalid subject" });
     }
 
-    const semester = await Semester.findById(semesterId).populate({
-      path: "department",
-      populate: { path: "college" }
-    });
-
-    if (!semester) {
-      return res.status(404).json({ message: "Semester not found" });
+    // ✅ must match semester
+    if (subject.semester._id.toString() !== semesterId) {
+      return res.status(403).json({ message: "Subject not in this semester" });
     }
 
-    // 🔒 College isolation
-    if (String(req.user.college) !== String(semester.department.college)) {
+    // ✅ teacher must be assigned to subject
+    if (!subject.teacher || subject.teacher.toString() !== teacherId) {
+      return res.status(403).json({ message: "You are not assigned to this subject" });
+    }
+
+    // ✅ college isolation
+    if (
+      subject.semester.department.college._id.toString() !==
+      req.user.college.toString()
+    ) {
       return res.status(403).json({ message: "Cross-college upload blocked" });
-    }
-
-    if (String(subject.semester._id) !== String(semesterId)) {
-      return res.status(400).json({ message: "Subject not part of this semester" });
     }
 
     const note = await Note.create({
@@ -44,10 +46,13 @@ export const uploadNote = async (req, res) => {
       subject: subjectId,
       semester: semesterId,
       fileUrl: `/uploads/notes/${req.file.filename}`,
-      uploadedBy: req.user.id,
+      uploadedBy: teacherId,
     });
 
-    res.json({ message: "Note uploaded successfully", note });
+    res.status(201).json({
+      message: "Note uploaded successfully",
+      note,
+    });
 
   } catch (err) {
     console.error("Upload note error:", err);

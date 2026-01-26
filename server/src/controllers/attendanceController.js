@@ -3,58 +3,59 @@ import Attendance from "../models/Attendance.js";
 // 👨‍🏫 Teacher marks attendance
 import Subject from "../models/Subject.js";
 import Semester from "../models/Semester.js";
+import Department from "../models/Department.js";
 import User from "../models/User.js";
+
+
 
 export const markAttendance = async (req, res) => {
   try {
     const { subjectId, semesterId, date, records } = req.body;
+    const teacherId = req.user.id;
 
-    if (!subjectId || !semesterId || !date || !records?.length) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    // ✅ Get subject + semester
     const subject = await Subject.findById(subjectId).populate({
       path: "semester",
-      populate: { path: "department", populate: { path: "college" } }
+      populate: {
+        path: "department",
+        populate: { path: "college" },
+      },
     });
 
     if (!subject) {
-      return res.status(404).json({ message: "Subject not found" });
+      return res.status(400).json({ message: "Invalid subject" });
+    }
+
+    // ✅ teacher check
+    if (!subject.teacher || subject.teacher.toString() !== teacherId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "Teacher not assigned to subject" });
     }
 
     const semester = await Semester.findById(semesterId).populate({
       path: "department",
-      populate: { path: "college" }
+      populate: { path: "college" },
     });
 
     if (!semester) {
-      return res.status(404).json({ message: "Semester not found" });
+      return res.status(400).json({ message: "Invalid semester" });
     }
 
-    // ✅ Teacher must belong to same college
-    if (String(req.user.college) !== String(semester.department.college)) {
+    // ✅ college isolation
+    if (
+      semester.department.college._id.toString() !==
+      req.user.college.toString()
+    ) {
       return res.status(403).json({ message: "Cross-college access blocked" });
     }
 
-    // ✅ Subject must belong to same semester
-    if (String(subject.semester._id) !== String(semesterId)) {
-      return res.status(400).json({ message: "Subject not part of this semester" });
-    }
-
-    // ✅ Validate each student
     for (const r of records) {
       const student = await User.findById(r.student);
       if (!student || student.role !== "STUDENT") {
-        return res.status(400).json({ message: "Invalid student in records" });
+        return res.status(400).json({ message: "Invalid student" });
       }
-
-      if (String(student.college) !== String(req.user.college)) {
-        return res.status(403).json({ message: "Student from another college blocked" });
-      }
-
-      if (String(student.semester) !== String(semesterId)) {
-        return res.status(400).json({ message: "Student not in this semester" });
+      if (student.college.toString() !== req.user.college.toString()) {
+        return res.status(403).json({ message: "Student from another college" });
       }
     }
 
@@ -63,32 +64,58 @@ export const markAttendance = async (req, res) => {
       semester: semesterId,
       date,
       records,
-      markedBy: req.user.id,
+      markedBy: teacherId,
     });
 
     res.json({ message: "Attendance marked successfully", attendance });
-
   } catch (err) {
-    console.error("Attendance error:", err);
+    console.error("Mark attendance error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // 👨‍🎓 Student views own attendance
+
 export const getMyAttendance = async (req, res) => {
   try {
+    const studentId = req.user.id;
+
+    const student = await User.findById(studentId);
+    if (!student || !student.semester) {
+      return res
+        .status(400)
+        .json({ message: "Student not assigned to semester" });
+    }
+
     const attendance = await Attendance.find({
-      "records.student": req.user.id,
+      "records.student": studentId,
+      semester: student.semester,
     })
       .populate("subject", "name")
-      .populate("semester", "name")
       .sort({ date: -1 });
 
-    res.json(attendance);
+    // return only this student's record
+    const formatted = attendance.map((a) => {
+      const record = a.records.find(
+        (r) => r.student.toString() === studentId.toString()
+      );
+
+      return {
+        _id: a._id,
+        subject: a.subject.name,
+        date: a.date,
+        status: record?.status || "ABSENT",
+      };
+    });
+
+    res.json(formatted);
   } catch (err) {
+    console.error("Student attendance error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 //
@@ -133,6 +160,9 @@ export const getAttendanceStats = async (req, res) => {
         subjectStats[subjectId].present++;
       }
     });
+
+
+
 
     const subjectWise = Object.values(subjectStats).map((s) => ({
       subject: s.subject,

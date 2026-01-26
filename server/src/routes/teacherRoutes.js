@@ -4,7 +4,8 @@ import { allowRoles } from "../middleware/role.js";
 import {
   assignTeacher,
   getTodayClasses,
-  getTeacherDashboard
+  getTeacherDashboard,
+  getSubjectReport
 } from "../controllers/teacherController.js";
 
 const router = express.Router();
@@ -31,6 +32,14 @@ router.get(
   protect,
   allowRoles("TEACHER"),
   getTodayClasses
+);
+
+// Subject attendance report
+router.get(
+  "/subject-report/:subjectId",
+  protect,
+  allowRoles("TEACHER"),
+  getSubjectReport
 );
 
 export default router;

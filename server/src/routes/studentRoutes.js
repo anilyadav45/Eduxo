@@ -1,8 +1,9 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
 import { allowRoles } from "../middleware/role.js";
-import { getAttendance, getNotes,getStudentDashboard } from "../controllers/studentController.js";
+import { getAttendance, getNotes,getStudentDashboard,getAttendanceAnalytics } from "../controllers/studentController.js";
 import { getTodayRoutine } from "../controllers/studentController.js";
+
 
 const router = express.Router();
 
@@ -38,6 +39,16 @@ router.get(
   protect,
   allowRoles("STUDENT"),
   getTodayRoutine
+);
+
+
+
+
+router.get(
+  "/attendance/analytics",
+  protect,
+  allowRoles("STUDENT"),
+  getAttendanceAnalytics
 );
 
 export default router;
